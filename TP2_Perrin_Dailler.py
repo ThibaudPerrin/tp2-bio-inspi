@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import torch.nn.functional as F
 import numpy as np
 import random
-
+from random import choices
 
 
 
@@ -45,8 +45,19 @@ class RandomAgent(object):
 
     # action 1 = droite action 0 = gauche
     def act(self, observation, reward, done):
-        #P(s,ak) = ( e( Q(s,ak) / self.Tau ) / torch.sum( e( Q(s,ai) / self.Tau ) ) )
-        return self.action_space.sample()
+
+        numerateur_g =  torch.exp( self.model(torch.tensor(observation).float())[0] / self.Tau )
+        numerateur_d =  torch.exp( self.model(torch.tensor(observation).float())[1] / self.Tau )
+        denominateur = torch.sum( torch.exp( self.model(torch.tensor(observation).float()) / self.Tau ) )
+
+        Psag = numerateur_g / denominateur
+        Psad = numerateur_d / denominateur
+
+        population = [0, 1]
+        weights = [Psag, Psad] 
+        new_action = choices(population,weights)
+        # return self.action_space.sample()
+        return new_action[0]
 
     def remember(self, value):
         self.memory.append(value)
@@ -60,10 +71,8 @@ class RandomAgent(object):
         return self.memory
 
     def learn(self, x, y):
-        print(x)
-        print(torch.tensor(x).float())
         y_pred = self.model(torch.tensor(x).float())
-
+        print(y_pred)
         # Compute and print loss
         loss = self.loss_fn(y_pred, y.float())
 
@@ -73,8 +82,8 @@ class RandomAgent(object):
         self.optimizer.step()
 
 
-    def retry(self, batch_size):
-        minibatch = random.sample(self.memory, self.batch_size)
+    # def retry(self, batch_size):
+    #     minibatch = random.sample(self.memory, self.batch_size)
 
 
 
@@ -160,15 +169,18 @@ if __name__ == '__main__':
             reward = reward if not done else -10
             tensorAdd = (etat, action, etat_suivant, reward, done)
             etat = etat_suivant
-            agent.learn(etat, torch.tensor([1.,0.], dtype=float) if action == 0 else torch.tensor([0,1], dtype=float))
+            # agent.learn(etat, torch.tensor([1.,0.], dtype=float) if action == 0 else torch.tensor([0,1], dtype=float))
             agent.remember(tensorAdd)
             somme+= reward
             # agent.learn(etat, reward)
             if done:
                 break
+
+            '''
             if len(agent.memory) > batch_size:
                 # loss = agent.retry(batch_size)
                 agent.retry(batch_size)
+            '''
 
             # Note there's no env.render() here. But the environment still can open window and
             # render if asked by env.monitor: it calls env.render('rgb_array') to record video.
