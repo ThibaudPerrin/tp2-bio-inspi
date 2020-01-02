@@ -30,11 +30,11 @@ class RandomAgent(object):
         self.action_space = action_space
         self.size = 100000 # Memory size
         self.memory = []
-        self.batch_size = 32
+        self.batch_size = 20
         self.state_size = 4 
         self.action_size = 2
         self.learning_rate = 1e-3
-        self.model = MultipleLayer(self.state_size, 100, self.action_size, 2)
+        self.model = MultipleLayer(self.state_size, 100, self.action_size, 1)
         self.model_duplicata = MultipleLayer(self.state_size, 100, self.action_size, 1)
         self.Tau = 0.5
 
@@ -43,6 +43,8 @@ class RandomAgent(object):
 
         self.learn_state = 0
         self.gamma = 0.95
+
+        self.upadteModel()
 
 
     # action 1 = droite action 0 = gauche
@@ -102,7 +104,7 @@ class RandomAgent(object):
             if (self.learn_state % 10000 == 0):
                 print("copie : ", self.learn_state)
                 print("minibatch size : ", len(minibatch))
-                self.upadteModel()
+                # self.upadteModel()
                 # self.model_duplicata.w = self.model.w
 
             self.learn_state +=1
@@ -124,20 +126,7 @@ class MultipleLayer(torch.nn.Module):
         y_pred = self.linear2(y_pred)
         return y_pred
 
-class MultipleLayer2(torch.nn.Module):
-    def __init__(self, D_in, H, D_out, nbcouche):
-        super(MultipleLayer2, self).__init__()
-        self.n_couche = nbcouche
-        self.linear1 = torch.nn.Linear(D_in, H)
-        self.w = [torch.nn.Linear(H,H) for i in range(nbcouche)]
-        self.linear2 = torch.nn.Linear(H, D_out)
 
-    def forward(self, x):
-        y_pred = torch.sigmoid(self.linear1(x))
-        for n in range(self.n_couche-1):
-            y_pred = torch.sigmoid(self.w[n](y_pred))
-        y_pred = self.linear2(y_pred)
-        return y_pred
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=None)
@@ -163,25 +152,31 @@ if __name__ == '__main__':
     listSomme = []
     episode_count = 100
     reward = 1
-    done = False
+
+
+    etat_space = env.observation_space.shape[0]
+    action_space = env.action_space.n
+
 
     for i in range(episode_count):
         somme = 0
-        etat_suivant = env.reset()
-        etat = etat_suivant
+        etat = env.reset()
+        done = False
+        
         while True:
-            action = agent.act(etat_suivant, reward, done)
+            # env.render()
+            action = agent.act(etat, reward, done)
             etat_suivant, reward, done, _ = env.step(action)
             reward = reward if not done else -10
             tensorAdd = (etat, action, etat_suivant, reward, done)
             # agent.learn(etat, torch.tensor([1.,0.], dtype=float) if action == 0 else torch.tensor([0,1], dtype=float))
             agent.remember(tensorAdd)
-
             etat = etat_suivant
 
             somme += reward
             # agent.learn(etat, reward)
             if done:
+                agent.upadteModel()
                 break
 
             if len(agent.memory) > agent.batch_size:
