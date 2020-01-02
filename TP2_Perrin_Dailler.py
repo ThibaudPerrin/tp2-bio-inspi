@@ -88,17 +88,22 @@ class RandomAgent(object):
 
             qO = self.model(torch.tensor(etat).float())
 
-            q0sa = qO[0] if action == 0 else q0[1]
+            qOsa = qO[0] if action == 0 else qO[1]
 
             qO_suivant = self.model(torch.tensor(etat_suivant).float())
 
             rPlusMaxNext = reward + self.learning_rate*torch.max(qO_suivant)
 
             if not done :
-                JO = pow(q0sa - rPlusMaxNext, 2)
+                JO = pow(qOsa - rPlusMaxNext, 2)
             else :
-                JO = pow(q0sa - reward, 2)
-                
+                JO = pow(qOsa - reward, 2)
+
+            loss = self.loss_fn(qOsa, JO)
+            # Zero gradients, perform a backward pass, and update the weights.
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
 
 
 
