@@ -7,8 +7,6 @@ from gym import wrappers, logger
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.nn.functional as F
 import numpy as np
 import random
 from random import choices
@@ -37,18 +35,21 @@ class RandomAgent(object):
         self.action_size = 2
         self.learning_rate = 1e-3
         self.model = MultipleLayer(self.state_size, 100, self.action_size, 2)
+        self.model_duplicata = MultipleLayer(self.state_size, 100, self.action_size, 2)
         self.Tau = 0.5
 
         self.loss_fn = torch.nn.MSELoss(reduction='sum')
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
+        self.learn_state = 0
+
 
     # action 1 = droite action 0 = gauche
     def act(self, observation, reward, done):
 
-        numerateur_g =  torch.exp( self.model(torch.tensor(observation).float())[0] / self.Tau )
-        numerateur_d =  torch.exp( self.model(torch.tensor(observation).float())[1] / self.Tau )
-        denominateur = torch.sum( torch.exp( self.model(torch.tensor(observation).float()) / self.Tau ) )
+        numerateur_g =  torch.exp( self.model_duplicata(torch.tensor(observation).float())[0] / self.Tau )
+        numerateur_d =  torch.exp( self.model_duplicata(torch.tensor(observation).float())[1] / self.Tau )
+        denominateur = torch.sum( torch.exp( self.model_duplicata(torch.tensor(observation).float()) / self.Tau ) )
 
         Psag = numerateur_g / denominateur
         Psad = numerateur_d / denominateur
@@ -58,6 +59,9 @@ class RandomAgent(object):
         new_action = choices(population,weights)
         # return self.action_space.sample()
         return new_action[0]
+
+    def upadteModel(self):
+        self.model_duplicata.w = self.model.w
 
     def remember(self, value):
         self.memory.append(value)
@@ -69,18 +73,6 @@ class RandomAgent(object):
 
     def getMemory(self):
         return self.memory
-
-    def learn(self, x, y):
-        y_pred = self.model(torch.tensor(x).float())
-        print(y_pred)
-        # Compute and print loss
-        loss = self.loss_fn(y_pred, y.float())
-
-        # Zero gradients, perform a backward pass, and update the weights.
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
 
     def retry(self, batch_size):
         minibatch = random.sample(self.memory, self.batch_size)
@@ -98,12 +90,18 @@ class RandomAgent(object):
                 JO = pow(qOsa - rPlusMaxNext, 2)
             else :
                 JO = pow(qOsa - reward, 2)
-
             loss = self.loss_fn(qOsa, JO)
             # Zero gradients, perform a backward pass, and update the weights.
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+
+            if (self.learn_state % 10000 == 0):
+                print("copie : ", self.learn_state)
+                print("minibatch size : ", len(minibatch))
+                self.model_duplicata.w = self.model.w
+
+            self.learn_state +=1
 
 
 
@@ -116,13 +114,26 @@ class MultipleLayer(torch.nn.Module):
         self.linear2 = torch.nn.Linear(H, D_out)
 
     def forward(self, x):
-        y_pred = F.sigmoid(self.linear1(x))
+        y_pred = torch.sigmoid(self.linear1(x))
         for n in range(self.n_couche-1):
-            y_pred = F.sigmoid(self.w[n](y_pred))
+            y_pred = torch.sigmoid(self.w[n](y_pred))
         y_pred = self.linear2(y_pred)
         return y_pred
 
+class MultipleLayer2(torch.nn.Module):
+    def __init__(self, D_in, H, D_out, nbcouche):
+        super(MultipleLayer, self).__init__()
+        self.n_couche = nbcouche
+        self.linear1 = torch.nn.Linear(D_in, H)
+        self.w = [torch.nn.Linear(H,H) for i in range(nbcouche)]
+        self.linear2 = torch.nn.Linear(H, D_out)
 
+    def forward(self, x):
+        y_pred = torch.sigmoid(self.linear1(x))
+        for n in range(self.n_couche-1):
+            y_pred = torch.sigmoid(self.w[n](y_pred))
+        y_pred = self.linear2(y_pred)
+        return y_pred
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=None)
@@ -133,7 +144,7 @@ if __name__ == '__main__':
     # want to change the amount of output.
     logger.set_level(logger.INFO)
 
-    print(logger)
+    # print(logger)
 
     env = gym.make(args.env_id)
 
@@ -149,36 +160,7 @@ if __name__ == '__main__':
     episode_count = 100
     reward = 1
     done = False
-    batch_size = 32
 
-    # Construct our loss function and an Optimizer. The call to model.parameters()
-    # in the SGD constructor will contain the learnable parameters of the two
-    # nn.Linear modules which are members of the model.
-    ######################
-    ######################
-    ######################
-    # loss_fn = torch.nn.MSELoss(reduction='sum')
-    # optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    # for t in range(nombre_iterations):
-    #     for index, (image, label) in enumerate(train_loader) :
-    #         counter+=1
-    #         if index % 10 == 0: # evite la surcharge de message du notebook afin de ne pas avoir un message d'erreur
-    #             progress = (counter * 100 / (nombre_iterations*len(train_loader)))
-    #             print("Progress {:0.2f}%".format(progress), end="\r")
-            
-    #         # w_2c = w_2c.permute(1,0)
-    #         x = image
-    #         y_pred = model(x)
-
-    #         # Compute and print loss
-    #         loss = loss_fn(y_pred, label)
-
-    #         # Zero gradients, perform a backward pass, and update the weights.
-    #         optimizer.zero_grad()
-    #         loss.backward()
-    #         optimizer.step() 
-
- # target = (reward + self.gamma * np.amax(self.model.predict(next_state)[0]))
     for i in range(episode_count):
         somme = 0
         etat_suivant = env.reset()
@@ -196,9 +178,9 @@ if __name__ == '__main__':
             if done:
                 break
 
-            if len(agent.memory) > batch_size:
+            if len(agent.memory) > agent.batch_size:
                 # loss = agent.retry(batch_size)
-                agent.retry(batch_size)
+                agent.retry(agent.batch_size)
             
 
             # Note there's no env.render() here. But the environment still can open window and
