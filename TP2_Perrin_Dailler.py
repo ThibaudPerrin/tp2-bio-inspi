@@ -35,21 +35,22 @@ class RandomAgent(object):
         self.action_size = 2
         self.learning_rate = 1e-3
         self.model = MultipleLayer(self.state_size, 100, self.action_size, 2)
-        self.model_duplicata = MultipleLayer(self.state_size, 100, self.action_size, 2)
+        self.model_duplicata = MultipleLayer(self.state_size, 100, self.action_size, 1)
         self.Tau = 0.5
 
         self.loss_fn = torch.nn.MSELoss(reduction='sum')
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
         self.learn_state = 0
+        self.gamma = 0.95
 
 
     # action 1 = droite action 0 = gauche
     def act(self, observation, reward, done):
 
-        numerateur_g =  torch.exp( self.model_duplicata(torch.tensor(observation).float())[0] / self.Tau )
-        numerateur_d =  torch.exp( self.model_duplicata(torch.tensor(observation).float())[1] / self.Tau )
-        denominateur = torch.sum( torch.exp( self.model_duplicata(torch.tensor(observation).float()) / self.Tau ) )
+        numerateur_g =  torch.exp( self.model(torch.tensor(observation).float())[0] / self.Tau )
+        numerateur_d =  torch.exp( self.model(torch.tensor(observation).float())[1] / self.Tau )
+        denominateur = torch.sum( torch.exp( self.model(torch.tensor(observation).float()) / self.Tau ) )
 
         Psag = numerateur_g / denominateur
         Psad = numerateur_d / denominateur
@@ -61,7 +62,9 @@ class RandomAgent(object):
         return new_action[0]
 
     def upadteModel(self):
+        self.model_duplicata.linear1 = self.model.linear1
         self.model_duplicata.w = self.model.w
+        self.model_duplicata.linear2 = self.model.linear2
 
     def remember(self, value):
         self.memory.append(value)
@@ -80,11 +83,11 @@ class RandomAgent(object):
 
             qO = self.model(torch.tensor(etat).float())
 
-            qOsa = qO[0] if action == 0 else qO[1]
+            qOsa = qO[action]
 
-            qO_suivant = self.model(torch.tensor(etat_suivant).float())
+            qO_suivant = self.model_duplicata(torch.tensor(etat_suivant).float())
 
-            rPlusMaxNext = reward + self.learning_rate*torch.max(qO_suivant)
+            rPlusMaxNext = reward + self.gamma*torch.max(qO_suivant)
 
             if not done :
                 JO = pow(qOsa - rPlusMaxNext, 2)
@@ -99,7 +102,8 @@ class RandomAgent(object):
             if (self.learn_state % 10000 == 0):
                 print("copie : ", self.learn_state)
                 print("minibatch size : ", len(minibatch))
-                self.model_duplicata.w = self.model.w
+                self.upadteModel()
+                # self.model_duplicata.w = self.model.w
 
             self.learn_state +=1
 
@@ -122,7 +126,7 @@ class MultipleLayer(torch.nn.Module):
 
 class MultipleLayer2(torch.nn.Module):
     def __init__(self, D_in, H, D_out, nbcouche):
-        super(MultipleLayer, self).__init__()
+        super(MultipleLayer2, self).__init__()
         self.n_couche = nbcouche
         self.linear1 = torch.nn.Linear(D_in, H)
         self.w = [torch.nn.Linear(H,H) for i in range(nbcouche)]
@@ -170,10 +174,12 @@ if __name__ == '__main__':
             etat_suivant, reward, done, _ = env.step(action)
             reward = reward if not done else -10
             tensorAdd = (etat, action, etat_suivant, reward, done)
-            etat = etat_suivant
             # agent.learn(etat, torch.tensor([1.,0.], dtype=float) if action == 0 else torch.tensor([0,1], dtype=float))
             agent.remember(tensorAdd)
-            somme+= reward
+
+            etat = etat_suivant
+
+            somme += reward
             # agent.learn(etat, reward)
             if done:
                 break
