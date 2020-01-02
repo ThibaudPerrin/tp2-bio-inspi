@@ -82,8 +82,23 @@ class RandomAgent(object):
         self.optimizer.step()
 
 
-    # def retry(self, batch_size):
-    #     minibatch = random.sample(self.memory, self.batch_size)
+    def retry(self, batch_size):
+        minibatch = random.sample(self.memory, self.batch_size)
+        for etat, action, etat_suivant, reward, done in minibatch:
+
+            qO = self.model(torch.tensor(etat).float())
+
+            q0sa = qO[0] if action == 0 else q0[1]
+
+            qO_suivant = self.model(torch.tensor(etat_suivant).float())
+
+            rPlusMaxNext = reward + self.learning_rate*torch.max(qO_suivant)
+
+            if not done :
+                JO = pow(q0sa - rPlusMaxNext, 2)
+            else :
+                JO = pow(q0sa - reward, 2)
+                
 
 
 
@@ -176,11 +191,10 @@ if __name__ == '__main__':
             if done:
                 break
 
-            '''
             if len(agent.memory) > batch_size:
                 # loss = agent.retry(batch_size)
                 agent.retry(batch_size)
-            '''
+            
 
             # Note there's no env.render() here. But the environment still can open window and
             # render if asked by env.monitor: it calls env.render('rgb_array') to record video.
