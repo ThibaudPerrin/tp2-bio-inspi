@@ -195,22 +195,14 @@ class RandomAgent(object):
         """
 
         self.action_space = action_space
-        self.size = 100000  # Memory size
+        self.size = 1000000  # Memory size
         self.memory = []
-        self.batch_size = 64
+        self.batch_size = 32
         self.state_size = 4
-        self.action_size = 2
+        self.action_size = 4
         self.learning_rate = 1e-3
-        self.model = torch.nn.Sequential(
-            torch.nn.Linear(self.state_size, 100),
-            torch.nn.Sigmoid(),
-            torch.nn.Linear(100, self.action_size),
-        )
-        self.model_duplicata = torch.nn.Sequential(
-            torch.nn.Linear(self.state_size, 100),
-            torch.nn.Sigmoid(),
-            torch.nn.Linear(100, self.action_size),
-        )
+        self.model = ConvModel(np.array(4,84,84), self.action_size)
+        self.model_duplicata = ConvModel(np.array(4,84,84), 4)
         self.Tau = 0.5
 
         self.loss_fn = torch.nn.MSELoss(reduction='sum')
@@ -222,8 +214,15 @@ class RandomAgent(object):
         self.upadteModel()
 
     # action 1 = droite action 0 = gauche
-    def act(self, observation, reward, done):
-        return env.action_space.sample()
+    def act(self, etat, reward, done):
+        epsilon = 0.005
+        if random() > epsilon:
+            state = torch.tensor(observation).float()
+            q_value = self.model(state)
+            action = q_value.max(1)[1].item()
+        else:
+            action = randrange(self.action_size)
+        return action
 
     def upadteModel(self):
         return
@@ -240,7 +239,33 @@ class RandomAgent(object):
         return self.memory
 
     def retry(self, batch_size):
-        return
+        minibatch = random.sample(self.memory, self.batch_size)
+        for etat, action, etat_suivant, reward, done in minibatch:
+
+            qO = self.model(torch.tensor(etat).float())
+
+            qOsa = qO[action]
+
+            qO_suivant = self.model_duplicata(torch.tensor(etat_suivant).float())
+
+            rPlusMaxNext = reward + self.gamma*torch.max(qO_suivant)
+
+            if not done :
+                JO = pow(qOsa - rPlusMaxNext, 2)
+            else :
+                JO = pow(qOsa - reward, 2)
+            loss = self.loss_fn(qOsa, JO)
+            # Zero gradients, perform a backward pass, and update the weights.
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            if (self.learn_state % 10000 == 0):
+                print("learn_state : ", self.learn_state)
+                self.upadteModel()
+                # self.model_duplicata.w = self.model.w
+
+            self.learn_state +=1
 
 
 if __name__ == '__main__':
