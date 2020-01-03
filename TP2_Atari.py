@@ -214,7 +214,7 @@ class RandomAgent(object):
         self.upadteModel()
 
     # action 1 = droite action 0 = gauche
-    def act(self, etat, reward, done):
+    def act(self, observation, reward, done):
         epsilon = 0.005
         if random() > epsilon:
             state = torch.tensor(observation).float()
