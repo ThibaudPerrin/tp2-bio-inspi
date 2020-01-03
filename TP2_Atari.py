@@ -239,7 +239,7 @@ class RandomAgent(object):
         array_index = np.random.choice(len(self.memory),
                                    self.batch_size,
                                    replace=False)
-        print("+++++++++++++++++")
+
         sequence = zip(*[self.memory[i] for i in array_index])
 
         etat, action, etat_suivant, reward, done = sequence
@@ -256,7 +256,7 @@ class RandomAgent(object):
         return self.memory
 
     def retry(self, batch_size):
-        minibatch = self.sample()
+        etat, action, etat_suivant, reward, done = self.sample()
         # for etat, action, etat_suivant, reward, done in minibatch:
 
         #     qO = self.model(torch.tensor(etat).float())
