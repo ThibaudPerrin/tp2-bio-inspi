@@ -192,7 +192,7 @@ class RandomAgent(object):
 
     # action 1 = droite action 0 = gauche
     def act(self, observation, reward, done):
-        return
+        return env.action_space.sample()
 
     def upadteModel(self):
         return
@@ -213,7 +213,7 @@ class RandomAgent(object):
 
 
 if __name__ == '__main__':
-    #np.set_printoptions(threshold=sys.maxsize)
+    # np.set_printoptions(threshold=sys.maxsize)
     parser = argparse.ArgumentParser(description=None)
     parser.add_argument('env_id', nargs='?', default='BreakoutNoFrameskip-v4', help='Select the environment to run')
     args = parser.parse_args()
@@ -245,18 +245,19 @@ if __name__ == '__main__':
         while True:
             env.render()
 
-            etat_suivant, reward , done, _ = env.step(env.action_space.sample())
+            action = agent.act(etat, reward, done)
+
+            etat_suivant, reward , done, _ = env.step(action)
             reward = reward if not done else -10
 
-            tensorAdd = (etat_suivant, reward, done)
+            tensorAdd = (etat, action, etat_suivant, reward, done)
             # agent.learn(etat, torch.tensor([1.,0.], dtype=float) if action == 0 else torch.tensor([0,1], dtype=float))
             agent.remember(tensorAdd)
 
             step_i += 1
-            
+
             if done:
                 # agent.upadteModel()
                 break
         i = 1
-    agent.showMemory()
     env.close()
