@@ -9,7 +9,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 import random
-from random import choices
 from gym.spaces import Box
 from gym.wrappers import TimeLimit
 
@@ -133,7 +132,10 @@ class AtariPreprocessing(gym.Wrapper):
         else:
             self.ale.getScreenRGB2(self.obs_buffer[0])
         self.obs_buffer[1].fill(0)
-        return self._get_obs()
+
+
+        result_array = np.array([self._get_obs() for i in range(4)])
+        return result_array
 
     def _get_obs(self):
         import cv2
@@ -155,7 +157,7 @@ class ConvModel(nn.Module):
         self._num_actions = num_actions
 
         self.conv = nn.Sequential(
-            nn.Conv2d(4, 32,84, kernel_size=8, stride=4),
+            nn.Conv2d(4, 32, kernel_size=8, stride=4),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
             nn.ReLU(),
@@ -201,8 +203,8 @@ class RandomAgent(object):
         self.state_size = 4
         self.action_size = 4
         self.learning_rate = 1e-3
-        self.model = ConvModel(np.array(4,84,84), self.action_size)
-        self.model_duplicata = ConvModel(np.array(4,84,84), 4)
+        self.model = ConvModel(np.array([4,84,84]), self.action_size)
+        self.model_duplicata = ConvModel(np.array([4,84,84]), 4)
         self.Tau = 0.5
 
         self.loss_fn = torch.nn.MSELoss(reduction='sum')
@@ -214,10 +216,13 @@ class RandomAgent(object):
         self.upadteModel()
 
     # action 1 = droite action 0 = gauche
-    def act(self, observation, reward, done):
-        epsilon = 0.005
-        if random() > epsilon:
+    def act(self, observation, epsilon, reward, done):
+        rnd = random.uniform(0, 1)
+        if rnd > epsilon:
             state = torch.tensor(observation).float()
+            print("-------------------")
+            print(state.shape)
+            print("-------------------")
             q_value = self.model(state)
             action = q_value.max(1)[1].item()
         else:
@@ -292,6 +297,7 @@ if __name__ == '__main__':
     listSomme = []
     episode_count = 50
     reward = 1
+    epsilon = .1
 
     for i in range(episode_count):
         somme = 0
@@ -300,7 +306,8 @@ if __name__ == '__main__':
 
         while True:
             # env.render()
-            action = agent.act(etat, reward, done)
+            action = agent.act(etat, epsilon, reward, done)
+            print(action)
             etat_suivant, reward , done, _ = env.step(action)
             reward = reward if not done else -10
             tensorAdd = (etat, action, etat_suivant, reward, done)
