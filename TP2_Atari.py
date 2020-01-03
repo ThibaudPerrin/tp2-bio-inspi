@@ -75,7 +75,7 @@ class AtariPreprocessing(gym.Wrapper):
 
     def step(self, action):
         R = 0.0
-
+        result_array = []
         for t in range(self.frame_skip):
             _, reward, done, info = self.env.step(action)
             R += reward
@@ -98,7 +98,9 @@ class AtariPreprocessing(gym.Wrapper):
                     self.ale.getScreenGrayscale(self.obs_buffer[1])
                 else:
                     self.ale.getScreenRGB2(self.obs_buffer[1])
-        return self._get_obs(), R, done, info
+            result_array.append(self._get_obs())
+        return result_array, R, done, info
+
 
     def reset(self, **kwargs):
         # NoopReset
@@ -193,7 +195,7 @@ class RandomAgent(object):
 
 
 if __name__ == '__main__':
-    np.set_printoptions(threshold=sys.maxsize)
+    #np.set_printoptions(threshold=sys.maxsize)
     parser = argparse.ArgumentParser(description=None)
     parser.add_argument('env_id', nargs='?', default='BreakoutNoFrameskip-v4', help='Select the environment to run')
     args = parser.parse_args()
@@ -212,24 +214,23 @@ if __name__ == '__main__':
     # will be namespaced). You can also dump to a tempdir if you'd
     # like: tempfile.mkdtemp().
     outdir = '/tmp/random-agent-results'
-    env = AtariPreprocessing(env, screen_size=84, grayscale_obs=True, frame_skip=1, scale_obs=True)
+    env = AtariPreprocessing(env, screen_size=84, grayscale_obs=True, frame_skip=4, scale_obs=True)
     agent = RandomAgent(env.action_space)
     listSomme = []
     episode_count = 1
     reward = 1
-
 
     for i in range(episode_count):
         somme = 0
         etat = env.reset()
         done, step_i = False, 0
 
-        while step_i < 2:
+        while step_i < 1:
             env.render()
-            obs, _, done, _ = env.step(env.action_space.sample())
-            print(obs.shape)
+
+            etat_suivant, reward , done, _ = env.step(env.action_space.sample())
+            reward = reward if not done else -10
             step_i += 1
-            print(step_i)
         i = 1
 
     env.close()
