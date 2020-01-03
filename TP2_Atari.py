@@ -242,17 +242,21 @@ if __name__ == '__main__':
         etat = env.reset()
         done, step_i = False, 0
 
-        while step_i < 50:
+        while True:
             env.render()
-
-
-            if len(agent.memory) > agent.batch_size:
-                # loss = agent.retry(batch_size)
-                agent.retry(agent.batch_size)
 
             etat_suivant, reward , done, _ = env.step(env.action_space.sample())
             reward = reward if not done else -10
+
+            tensorAdd = (etat_suivant, reward, done)
+            # agent.learn(etat, torch.tensor([1.,0.], dtype=float) if action == 0 else torch.tensor([0,1], dtype=float))
+            agent.remember(tensorAdd)
+
             step_i += 1
+            
+            if done:
+                # agent.upadteModel()
+                break
         i = 1
     agent.showMemory()
     env.close()
