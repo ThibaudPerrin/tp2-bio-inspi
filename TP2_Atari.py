@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import random
+from random import randrange
 from gym.spaces import Box
 from gym.wrappers import TimeLimit
 
@@ -114,7 +115,7 @@ class AtariPreprocessing(gym.Wrapper):
                     self.ale.getScreenRGB2(self.obs_buffer[3])
 
             result_array.append(self._get_obs())
-        return np.array(result_array), R, done, info
+        return torch.tensor([result_array]), R, done, info
 
 
     def reset(self, **kwargs):
@@ -134,8 +135,8 @@ class AtariPreprocessing(gym.Wrapper):
         self.obs_buffer[1].fill(0)
 
 
-        result_array = np.array([self._get_obs() for i in range(4)])
-        return result_array
+        result_array = [self._get_obs() for i in range(4)]
+        return torch.tensor([result_array])
 
     def _get_obs(self):
         import cv2
@@ -157,7 +158,7 @@ class ConvModel(nn.Module):
         self._num_actions = num_actions
 
         self.conv = nn.Sequential(
-            nn.Conv2d(4, 32, kernel_size=8, stride=4),
+            torch.nn.Conv2d(4, 32, kernel_size=8, stride=4),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
             nn.ReLU(),
@@ -173,7 +174,7 @@ class ConvModel(nn.Module):
 
     def forward(self, x):
         x = self.conv(x).view(x.size()[0], -1)
-        return self.linar(x)
+        return self.linear(x)
 
     @property
     def feature_size(self):
@@ -220,9 +221,6 @@ class RandomAgent(object):
         rnd = random.uniform(0, 1)
         if rnd > epsilon:
             state = torch.tensor(observation).float()
-            print("-------------------")
-            print(state.shape)
-            print("-------------------")
             q_value = self.model(state)
             action = q_value.max(1)[1].item()
         else:

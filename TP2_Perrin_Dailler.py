@@ -95,32 +95,32 @@ class RandomAgent(object):
 
     def retry(self, batch_size):
         minibatch = random.sample(self.memory, self.batch_size)
-        for etat, action, etat_suivant, reward, done in minibatch:
+        # for etat, action, etat_suivant, reward, done in minibatch:
 
-            qO = self.model(torch.tensor(etat).float())
+        #     qO = self.model(torch.tensor(etat).float())
 
-            qOsa = qO[action]
+        #     qOsa = qO[action]
 
-            qO_suivant = self.model_duplicata(torch.tensor(etat_suivant).float())
+        #     qO_suivant = self.model_duplicata(torch.tensor(etat_suivant).float())
 
-            rPlusMaxNext = reward + self.gamma*torch.max(qO_suivant)
+        #     rPlusMaxNext = reward + self.gamma*torch.max(qO_suivant)
 
-            if not done :
-                JO = pow(qOsa - rPlusMaxNext, 2)
-            else :
-                JO = pow(qOsa - reward, 2)
-            loss = self.loss_fn(qOsa, JO)
-            # Zero gradients, perform a backward pass, and update the weights.
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+        #     if not done :
+        #         JO = pow(qOsa - rPlusMaxNext, 2)
+        #     else :
+        #         JO = pow(qOsa - reward, 2)
+        #     loss = self.loss_fn(qOsa, JO)
+        #     # Zero gradients, perform a backward pass, and update the weights.
+        #     self.optimizer.zero_grad()
+        #     loss.backward()
+        #     self.optimizer.step()
 
-            if (self.learn_state % 10000 == 0):
-                print("learn_state : ", self.learn_state)
-                self.upadteModel()
-                # self.model_duplicata.w = self.model.w
+        #     if (self.learn_state % 10000 == 0):
+        #         print("learn_state : ", self.learn_state)
+        #         self.upadteModel()
+        #         # self.model_duplicata.w = self.model.w
 
-            self.learn_state +=1
+        #     self.learn_state +=1
 
 
 
