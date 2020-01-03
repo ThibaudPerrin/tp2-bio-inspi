@@ -12,7 +12,7 @@ import random
 from random import randrange
 from gym.spaces import Box
 from gym.wrappers import TimeLimit
-
+from torch.autograd import Variable
 
 class AtariPreprocessing(gym.Wrapper):
     r"""Atari 2600 preprocessings.
@@ -228,7 +228,7 @@ class RandomAgent(object):
         return action
 
     def upadteModel(self):
-        return
+        self.model_duplicata.load_state_dict(self.model.state_dict())
 
     def remember(self, value):
         self.memory.append(value)
@@ -258,31 +258,24 @@ class RandomAgent(object):
     def retry(self, batch_size):
         etat, action, etat_suivant, reward, done = self.sample()
         # for etat, action, etat_suivant, reward, done in minibatch:
+        self.optimizer.zero_grad()
+        qO = self.model(etat)
+        qOsa = qO.gather(1, action.unsqueeze(-1)).squeeze(-1)
 
-        #     qO = self.model(torch.tensor(etat).float())
+        qO_suivant = self.model_duplicata(etat_suivant)
+        qOsa_suivant = qO_suivant.max(1)[0]
 
-        #     qOsa = qO[action]
+        rPlusMaxNext = reward + self.gamma * qOsa_suivant * (1 - done)
 
-        #     qO_suivant = self.model_duplicata(torch.tensor(etat_suivant).float())
+        loss = (qOsa - Variable(rPlusMaxNext.data)).pow(2).mean()
+        loss.backward()
+        self.optimizer.step()
 
-        #     rPlusMaxNext = reward + self.gamma*torch.max(qO_suivant)
+        if (self.learn_state % 10000 == 0):
+            print("learn_state : ", self.learn_state)
+            self.upadteModel()
 
-        #     if not done :
-        #         JO = pow(qOsa - rPlusMaxNext, 2)
-        #     else :
-        #         JO = pow(qOsa - reward, 2)
-        #     loss = self.loss_fn(qOsa, JO)
-        #     # Zero gradients, perform a backward pass, and update the weights.
-        #     self.optimizer.zero_grad()
-        #     loss.backward()
-        #     self.optimizer.step()
-
-        #     if (self.learn_state % 10000 == 0):
-        #         print("learn_state : ", self.learn_state)
-        #         self.upadteModel()
-        #         # self.model_duplicata.w = self.model.w
-
-        #     self.learn_state +=1
+        self.learn_state +=1
 
 
 if __name__ == '__main__':
