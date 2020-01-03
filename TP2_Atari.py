@@ -55,12 +55,17 @@ class AtariPreprocessing(gym.Wrapper):
         self.grayscale_obs = grayscale_obs
         self.scale_obs = scale_obs
 
-        # buffer of most recent two observations for max pooling
+        # buffer of most recent four observations for max pooling
+        print(env.observation_space)
         if grayscale_obs:
             self.obs_buffer = [np.empty(env.observation_space.shape[:2], dtype=np.uint8),
+                               np.empty(env.observation_space.shape[:2], dtype=np.uint8),
+                               np.empty(env.observation_space.shape[:2], dtype=np.uint8),
                                np.empty(env.observation_space.shape[:2], dtype=np.uint8)]
         else:
             self.obs_buffer = [np.empty(env.observation_space.shape, dtype=np.uint8),
+                               np.empty(env.observation_space.shape, dtype=np.uint8),
+                               np.empty(env.observation_space.shape, dtype=np.uint8),
                                np.empty(env.observation_space.shape, dtype=np.uint8)]
 
         self.ale = env.unwrapped.ale
@@ -88,18 +93,29 @@ class AtariPreprocessing(gym.Wrapper):
 
             if done:
                 break
-            if t == self.frame_skip - 2:
+            if t == self.frame_skip - 4:
                 if self.grayscale_obs:
                     self.ale.getScreenGrayscale(self.obs_buffer[0])
                 else:
                     self.ale.getScreenRGB2(self.obs_buffer[0])
-            elif t == self.frame_skip - 1:
+            elif t == self.frame_skip - 3:
                 if self.grayscale_obs:
                     self.ale.getScreenGrayscale(self.obs_buffer[1])
                 else:
                     self.ale.getScreenRGB2(self.obs_buffer[1])
+            elif t == self.frame_skip - 2:
+                if self.grayscale_obs:
+                    self.ale.getScreenGrayscale(self.obs_buffer[2])
+                else:
+                    self.ale.getScreenRGB2(self.obs_buffer[2])
+            elif t == self.frame_skip - 1:
+                if self.grayscale_obs:
+                    self.ale.getScreenGrayscale(self.obs_buffer[3])
+                else:
+                    self.ale.getScreenRGB2(self.obs_buffer[3])
+
             result_array.append(self._get_obs())
-        return result_array, R, done, info
+        return np.array(result_array), R, done, info
 
 
     def reset(self, **kwargs):
@@ -214,7 +230,7 @@ if __name__ == '__main__':
     # will be namespaced). You can also dump to a tempdir if you'd
     # like: tempfile.mkdtemp().
     outdir = '/tmp/random-agent-results'
-    env = AtariPreprocessing(env, screen_size=84, grayscale_obs=True, frame_skip=4, scale_obs=True)
+    env = wrappers.Monitor(AtariPreprocessing(env, screen_size=84, grayscale_obs=True, frame_skip=4, scale_obs=True), directory=outdir, force=True)
     agent = RandomAgent(env.action_space)
     listSomme = []
     episode_count = 1
@@ -225,7 +241,7 @@ if __name__ == '__main__':
         etat = env.reset()
         done, step_i = False, 0
 
-        while step_i < 1:
+        while step_i < 50:
             env.render()
 
             etat_suivant, reward , done, _ = env.step(env.action_space.sample())
