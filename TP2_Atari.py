@@ -92,8 +92,8 @@ class AtariPreprocessing(gym.Wrapper):
                 done = done or new_lives < self.lives
                 self.lives = new_lives
 
-            if done:
-                break
+            # if done:
+            #     break
             if t == self.frame_skip - 4:
                 if self.grayscale_obs:
                     self.ale.getScreenGrayscale(self.obs_buffer[0])
@@ -116,6 +116,7 @@ class AtariPreprocessing(gym.Wrapper):
                     self.ale.getScreenRGB2(self.obs_buffer[3])
 
             result_array.append(self._get_obs())
+
         return result_array, R, done, info
 
 
@@ -253,6 +254,7 @@ class RandomAgent(object):
                 torch.tensor(reward, dtype=torch.float32),
                 torch.tensor(done, dtype=torch.uint8))
 
+
     def showMemory(self):
         print(self.memory)
 
@@ -309,7 +311,7 @@ if __name__ == '__main__':
     env = wrappers.Monitor(AtariPreprocessing(env, screen_size=84, grayscale_obs=True, frame_skip=4, scale_obs=True), directory=outdir, force=True)
     agent = RandomAgent(env.action_space)
     listSomme = []
-    episode_count = 50
+    episode_count = 28
     reward = 1
 
 
@@ -321,7 +323,7 @@ if __name__ == '__main__':
 
         while True:
             # env.render()
-            action = agent.act(etat,reward, done)
+            action = agent.act(etat, reward, done)
             etat_suivant, reward , done, _ = env.step(action)
             reward = reward if not done else -10
             tensorAdd = (etat, action, etat_suivant, reward, done)
