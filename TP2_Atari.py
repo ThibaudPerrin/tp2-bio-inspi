@@ -115,7 +115,7 @@ class AtariPreprocessing(gym.Wrapper):
                     self.ale.getScreenRGB2(self.obs_buffer[3])
 
             result_array.append(self._get_obs())
-        return torch.tensor([result_array]), R, done, info
+        return torch.tensor(result_array), R, done, info
 
 
     def reset(self, **kwargs):
@@ -135,8 +135,8 @@ class AtariPreprocessing(gym.Wrapper):
         self.obs_buffer[1].fill(0)
 
 
-        result_array = [self._get_obs() for i in range(4)]
-        return torch.tensor([result_array])
+        result_array = torch.tensor([self._get_obs() for i in range(4)])
+        return result_array
 
     def _get_obs(self):
         import cv2
@@ -221,7 +221,7 @@ class RandomAgent(object):
         rnd = random.uniform(0, 1)
         if rnd > epsilon:
             state = torch.tensor(observation).float()
-            q_value = self.model(state)
+            q_value = self.model(state.unsqueeze(0))
             action = q_value.max(1)[1].item()
         else:
             action = randrange(self.action_size)
@@ -305,7 +305,6 @@ if __name__ == '__main__':
         while True:
             # env.render()
             action = agent.act(etat, epsilon, reward, done)
-            print(action)
             etat_suivant, reward , done, _ = env.step(action)
             reward = reward if not done else -10
             tensorAdd = (etat, action, etat_suivant, reward, done)
