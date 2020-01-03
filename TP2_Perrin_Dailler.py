@@ -30,7 +30,7 @@ class RandomAgent(object):
         self.action_space = action_space
         self.size = 100000 # Memory size
         self.memory = []
-        self.batch_size = 20
+        self.batch_size = 32
         self.state_size = 4 
         self.action_size = 2
         self.learning_rate = 1e-3
@@ -50,18 +50,32 @@ class RandomAgent(object):
     # action 1 = droite action 0 = gauche
     def act(self, observation, reward, done):
 
-        numerateur_g =  torch.exp( self.model(torch.tensor(observation).float())[0] / self.Tau )
-        numerateur_d =  torch.exp( self.model(torch.tensor(observation).float())[1] / self.Tau )
-        denominateur = torch.sum( torch.exp( self.model(torch.tensor(observation).float()) / self.Tau ) )
+        epsilon = 0.1
+        rnd = random.uniform(0, 1)
+        res = self.model(torch.tensor(observation).float())
+        maxval, idx = res.max(0)
+        maxval, idx2 = res.min(0)
 
-        Psag = numerateur_g / denominateur
-        Psad = numerateur_d / denominateur
 
-        population = [0, 1]
-        weights = [Psag, Psad] 
-        new_action = choices(population,weights)
-        # return self.action_space.sample()
-        return new_action[0]
+        if rnd < 1-epsilon:
+            indices = idx.item()
+        else:
+            indices = idx2.item()
+
+        return indices 
+
+        # numerateur_g =  torch.exp( self.model(torch.tensor(observation).float())[0] / self.Tau )
+        # numerateur_d =  torch.exp( self.model(torch.tensor(observation).float())[1] / self.Tau )
+        # denominateur = torch.sum( torch.exp( self.model(torch.tensor(observation).float()) / self.Tau ) )
+
+        # Psag = numerateur_g / denominateur
+        # Psad = numerateur_d / denominateur
+
+        # population = [0, 1]
+        # weights = [Psag, Psad] 
+        # new_action = choices(population,weights)
+        # # return self.action_space.sample()
+        # return new_action[0]
 
     def upadteModel(self):
         self.model_duplicata.linear1 = self.model.linear1
@@ -102,9 +116,8 @@ class RandomAgent(object):
             self.optimizer.step()
 
             if (self.learn_state % 10000 == 0):
-                print("copie : ", self.learn_state)
-                print("minibatch size : ", len(minibatch))
-                # self.upadteModel()
+                print("learn_state : ", self.learn_state)
+                self.upadteModel()
                 # self.model_duplicata.w = self.model.w
 
             self.learn_state +=1
@@ -150,7 +163,7 @@ if __name__ == '__main__':
     env.seed(0)
     agent = RandomAgent(env.action_space)
     listSomme = []
-    episode_count = 100
+    episode_count = 260
     reward = 1
 
 
@@ -176,7 +189,7 @@ if __name__ == '__main__':
             somme += reward
             # agent.learn(etat, reward)
             if done:
-                agent.upadteModel()
+                # agent.upadteModel()
                 break
 
             if len(agent.memory) > agent.batch_size:
@@ -196,7 +209,7 @@ if __name__ == '__main__':
     y = np.array(listSomme)
     plt.plot(x, y, "-ob", markersize=2, label="nom de la courbe")
     plt.show()
-
+    env.render()
     env.close()
 
 

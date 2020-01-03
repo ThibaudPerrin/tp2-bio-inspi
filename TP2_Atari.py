@@ -198,10 +198,12 @@ class RandomAgent(object):
         return
 
     def remember(self, value):
-        return
+        self.memory.append(value)
+        if len(self.memory) > self.size:
+            self.memory.pop(0)
 
     def showMemory(self):
-        return
+        print(self.memory)
 
     def getMemory(self):
         return self.memory
@@ -223,13 +225,12 @@ if __name__ == '__main__':
     # print(logger)
 
     env = gym.make(args.env_id)
-    print(env)
 
     # You provide the directory to write to (can be an existing
     # directory, including one with existing data -- all monitor files
     # will be namespaced). You can also dump to a tempdir if you'd
     # like: tempfile.mkdtemp().
-    outdir = '/tmp/random-agent-results'
+    outdir = '/tmp/random-agent-results-atari'
     env = wrappers.Monitor(AtariPreprocessing(env, screen_size=84, grayscale_obs=True, frame_skip=4, scale_obs=True), directory=outdir, force=True)
     agent = RandomAgent(env.action_space)
     listSomme = []
@@ -244,9 +245,14 @@ if __name__ == '__main__':
         while step_i < 50:
             env.render()
 
+
+            if len(agent.memory) > agent.batch_size:
+                # loss = agent.retry(batch_size)
+                agent.retry(agent.batch_size)
+
             etat_suivant, reward , done, _ = env.step(env.action_space.sample())
             reward = reward if not done else -10
             step_i += 1
         i = 1
-
+    agent.showMemory()
     env.close()
