@@ -234,7 +234,7 @@ if __name__ == '__main__':
     env = wrappers.Monitor(AtariPreprocessing(env, screen_size=84, grayscale_obs=True, frame_skip=4, scale_obs=True), directory=outdir, force=True)
     agent = RandomAgent(env.action_space)
     listSomme = []
-    episode_count = 1
+    episode_count = 50
     reward = 1
 
     for i in range(episode_count):
@@ -243,21 +243,27 @@ if __name__ == '__main__':
         done, step_i = False, 0
 
         while True:
-            env.render()
-
+            # env.render()
             action = agent.act(etat, reward, done)
-
             etat_suivant, reward , done, _ = env.step(action)
             reward = reward if not done else -10
-
             tensorAdd = (etat, action, etat_suivant, reward, done)
             # agent.learn(etat, torch.tensor([1.,0.], dtype=float) if action == 0 else torch.tensor([0,1], dtype=float))
             agent.remember(tensorAdd)
+            etat = etat_suivant
 
+            somme += reward
             step_i += 1
 
             if done:
                 # agent.upadteModel()
                 break
         i = 1
+        listSomme.append(somme)
+
+    x = np.arange(episode_count) 
+    y = np.array(listSomme)
+    plt.plot(x, y, "-ob", markersize=2, label="nom de la courbe")
+    plt.show()
+    env.render()
     env.close()
