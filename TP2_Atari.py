@@ -115,7 +115,7 @@ class AtariPreprocessing(gym.Wrapper):
                     self.ale.getScreenRGB2(self.obs_buffer[3])
 
             result_array.append(self._get_obs())
-        return torch.tensor(result_array), R, done, info
+        return result_array, R, done, info
 
 
     def reset(self, **kwargs):
@@ -135,7 +135,7 @@ class AtariPreprocessing(gym.Wrapper):
         self.obs_buffer[1].fill(0)
 
 
-        result_array = torch.tensor([self._get_obs() for i in range(4)])
+        result_array = [self._get_obs() for i in range(4)]
         return result_array
 
     def _get_obs(self):
@@ -235,6 +235,20 @@ class RandomAgent(object):
         if len(self.memory) > self.size:
             self.memory.pop(0)
 
+    def sample(self):
+        array_index = np.random.choice(len(self.memory),
+                                   self.batch_size,
+                                   replace=False)
+        print("+++++++++++++++++")
+        sequence = zip(*[self.memory[i] for i in array_index])
+
+        etat, action, etat_suivant, reward, done = sequence
+        return (torch.tensor(etat),
+                torch.tensor(action),
+                torch.tensor(etat_suivant),
+                torch.tensor(reward, dtype=torch.float32),
+                torch.tensor(done, dtype=torch.uint8))
+
     def showMemory(self):
         print(self.memory)
 
@@ -242,33 +256,33 @@ class RandomAgent(object):
         return self.memory
 
     def retry(self, batch_size):
-        minibatch = random.sample(self.memory, self.batch_size)
-        for etat, action, etat_suivant, reward, done in minibatch:
+        minibatch = self.sample()
+        # for etat, action, etat_suivant, reward, done in minibatch:
 
-            qO = self.model(torch.tensor(etat).float())
+        #     qO = self.model(torch.tensor(etat).float())
 
-            qOsa = qO[action]
+        #     qOsa = qO[action]
 
-            qO_suivant = self.model_duplicata(torch.tensor(etat_suivant).float())
+        #     qO_suivant = self.model_duplicata(torch.tensor(etat_suivant).float())
 
-            rPlusMaxNext = reward + self.gamma*torch.max(qO_suivant)
+        #     rPlusMaxNext = reward + self.gamma*torch.max(qO_suivant)
 
-            if not done :
-                JO = pow(qOsa - rPlusMaxNext, 2)
-            else :
-                JO = pow(qOsa - reward, 2)
-            loss = self.loss_fn(qOsa, JO)
-            # Zero gradients, perform a backward pass, and update the weights.
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+        #     if not done :
+        #         JO = pow(qOsa - rPlusMaxNext, 2)
+        #     else :
+        #         JO = pow(qOsa - reward, 2)
+        #     loss = self.loss_fn(qOsa, JO)
+        #     # Zero gradients, perform a backward pass, and update the weights.
+        #     self.optimizer.zero_grad()
+        #     loss.backward()
+        #     self.optimizer.step()
 
-            if (self.learn_state % 10000 == 0):
-                print("learn_state : ", self.learn_state)
-                self.upadteModel()
-                # self.model_duplicata.w = self.model.w
+        #     if (self.learn_state % 10000 == 0):
+        #         print("learn_state : ", self.learn_state)
+        #         self.upadteModel()
+        #         # self.model_duplicata.w = self.model.w
 
-            self.learn_state +=1
+        #     self.learn_state +=1
 
 
 if __name__ == '__main__':
@@ -318,6 +332,10 @@ if __name__ == '__main__':
             if done:
                 # agent.upadteModel()
                 break
+
+            if len(agent.memory) > agent.batch_size:
+                # loss = agent.retry(batch_size)
+                agent.retry(agent.batch_size)
         i = 1
         listSomme.append(somme)
 
