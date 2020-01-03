@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import numpy as np
+import math
 import random
 from random import randrange
 from gym.spaces import Box
@@ -196,6 +197,9 @@ class RandomAgent(object):
             state_size (int): dimension of each state (D_in)
             action_size (int): dimension of each action (D_out)
         """
+        self.epsilon = 1
+        self.finalexplo = 0.1
+        self.initialexplo = 1
 
         self.action_space = action_space
         self.size = 1000000  # Memory size
@@ -203,13 +207,13 @@ class RandomAgent(object):
         self.batch_size = 32
         self.state_size = 4
         self.action_size = 4
-        self.learning_rate = 1e-3
+        self.learning_rate = 0.00025
         self.model = ConvModel(np.array([4,84,84]), self.action_size)
         self.model_duplicata = ConvModel(np.array([4,84,84]), 4)
         self.Tau = 0.5
 
         self.loss_fn = torch.nn.MSELoss(reduction='sum')
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.learning_rate,momentum=0.95,eps=0.01)
 
         self.learn_state = 0
         self.gamma = 0.99
@@ -217,9 +221,9 @@ class RandomAgent(object):
         self.upadteModel()
 
     # action 1 = droite action 0 = gauche
-    def act(self, observation, epsilon, reward, done):
+    def act(self, observation, reward, done):
         rnd = random.uniform(0, 1)
-        if rnd > epsilon:
+        if rnd > self.epsilon:
             state = torch.tensor(observation).float()
             q_value = self.model(state.unsqueeze(0))
             action = q_value.max(1)[1].item()
@@ -255,6 +259,10 @@ class RandomAgent(object):
     def getMemory(self):
         return self.memory
 
+    def changeEps(self,episode):
+        decay = 0.99
+        self.epsilon = self.finalexplo + (self.initialexplo - self.finalexplo) * math.exp(-1 * ((episode + 1) / decay))
+
     def retry(self, batch_size):
         etat, action, etat_suivant, reward, done = self.sample()
         # for etat, action, etat_suivant, reward, done in minibatch:
@@ -276,6 +284,7 @@ class RandomAgent(object):
             self.upadteModel()
 
         self.learn_state +=1
+
 
 
 if __name__ == '__main__':
@@ -302,16 +311,17 @@ if __name__ == '__main__':
     listSomme = []
     episode_count = 50
     reward = 1
-    epsilon = .1
+
 
     for i in range(episode_count):
         somme = 0
         etat = env.reset()
         done, step_i = False, 0
+        agent.changeEps(i)
 
         while True:
             # env.render()
-            action = agent.act(etat, epsilon, reward, done)
+            action = agent.act(etat,reward, done)
             etat_suivant, reward , done, _ = env.step(action)
             reward = reward if not done else -10
             tensorAdd = (etat, action, etat_suivant, reward, done)

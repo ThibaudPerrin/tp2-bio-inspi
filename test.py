@@ -32,7 +32,6 @@ if __name__ == '__main__':
     env = wrappers.Monitor(env, directory=outdir, force=True)
     env.seed(0)
     agent = RandomAgent(env.action_space)
-
     episode_count = 100
     reward = 0
     done = False
