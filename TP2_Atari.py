@@ -29,6 +29,7 @@ class AtariPreprocessing(gym.Wrapper):
     * Resize to a square image: 84x84 by default
     * Grayscale observation: optional
     * Scale observation: optional
+
     Args:
         env (Env): environment
         noop_max (int): max number of no-ops

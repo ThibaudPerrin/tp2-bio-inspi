@@ -172,7 +172,6 @@ if __name__ == '__main__':
     y = np.array(listSomme)
     plt.plot(x, y, "-ob", markersize=2, label="nom de la courbe")
     plt.show()
-    env.render()
     env.close()
 
 
