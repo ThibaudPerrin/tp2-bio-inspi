@@ -103,10 +103,10 @@ class AtariPreprocessing(gym.Wrapper):
                 done = done or new_lives < self.lives
                 self.lives = new_lives
 
-                if self.grayscale_obs:
-                    self.ale.getScreenGrayscale(self.obs_buffer[t])
-                else:
-                    self.ale.getScreenRGB2(self.obs_buffer[t])
+            if self.grayscale_obs:
+                self.ale.getScreenGrayscale(self.obs_buffer[t])
+            else:
+                self.ale.getScreenRGB2(self.obs_buffer[t])
         result_array = self._get_obs()
         return result_array, R, done, info
 
@@ -243,6 +243,7 @@ class RandomAgent(object):
                 torch.tensor(etat_suivant),
                 torch.tensor(reward, dtype=torch.float32),
                 torch.tensor(done, dtype=torch.uint8))
+
 
     def showMemory(self):
         print(self.memory)
