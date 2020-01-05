@@ -8,3 +8,6 @@
 # Installation des dépendances :
   - **pip install -r requirements.txt**
   
+# Execution 
+  -**python TP2_Cartpole.py / python TP2_Atari**
+  
