@@ -274,6 +274,7 @@ class RandomAgent(object):
 
         if (self.learn_state % 10000 == 0):
             self.upadteModel()
+            
 
         self.learn_state += 1
 
