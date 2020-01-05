@@ -15,6 +15,10 @@ from gym.spaces import Box
 from gym.wrappers import TimeLimit
 from torch.autograd import Variable
 
+
+
+
+
 class AtariPreprocessing(gym.Wrapper):
     r"""Atari 2600 preprocessings.
 
@@ -57,12 +61,13 @@ class AtariPreprocessing(gym.Wrapper):
         self.scale_obs = scale_obs
 
         # buffer of most recent four observations for max pooling
-        print(env.observation_space)
         if grayscale_obs:
+            #
             self.obs_buffer = [np.empty(env.observation_space.shape[:2], dtype=np.uint8),
                                np.empty(env.observation_space.shape[:2], dtype=np.uint8),
                                np.empty(env.observation_space.shape[:2], dtype=np.uint8),
                                np.empty(env.observation_space.shape[:2], dtype=np.uint8)]
+
         else:
             self.obs_buffer = [np.empty(env.observation_space.shape, dtype=np.uint8),
                                np.empty(env.observation_space.shape, dtype=np.uint8),
@@ -71,6 +76,7 @@ class AtariPreprocessing(gym.Wrapper):
 
         self.ale = env.unwrapped.ale
         self.lives = 0
+        self.lives_reward = 4
         self.game_over = False
 
         _low, _high, _obs_dtype = (0, 255, np.uint8) if not scale_obs else (0, 1, np.float32)
@@ -87,41 +93,28 @@ class AtariPreprocessing(gym.Wrapper):
             R += reward
             self.game_over = done
 
+            new_lives_reward = self.ale.lives()
+            R = -10. if new_lives_reward < self.lives_reward else R
+            self.lives_reward = new_lives_reward
+
+
             if self.terminal_on_life_loss:
                 new_lives = self.ale.lives()
                 done = done or new_lives < self.lives
                 self.lives = new_lives
 
-            if done:
-                break
-            if t == self.frame_skip - 4:
                 if self.grayscale_obs:
-                    self.ale.getScreenGrayscale(self.obs_buffer[0])
+                    self.ale.getScreenGrayscale(self.obs_buffer[t])
                 else:
-                    self.ale.getScreenRGB2(self.obs_buffer[0])
-            elif t == self.frame_skip - 3:
-                if self.grayscale_obs:
-                    self.ale.getScreenGrayscale(self.obs_buffer[1])
-                else:
-                    self.ale.getScreenRGB2(self.obs_buffer[1])
-            elif t == self.frame_skip - 2:
-                if self.grayscale_obs:
-                    self.ale.getScreenGrayscale(self.obs_buffer[2])
-                else:
-                    self.ale.getScreenRGB2(self.obs_buffer[2])
-            elif t == self.frame_skip - 1:
-                if self.grayscale_obs:
-                    self.ale.getScreenGrayscale(self.obs_buffer[3])
-                else:
-                    self.ale.getScreenRGB2(self.obs_buffer[3])
-
-            result_array.append(self._get_obs())
+                    self.ale.getScreenRGB2(self.obs_buffer[t])
+        result_array = self._get_obs()
         return result_array, R, done, info
 
 
     def reset(self, **kwargs):
         # NoopReset
         self.env.reset(**kwargs)
+
         noops = self.env.unwrapped.np_random.randint(1, self.noop_max + 1) if self.noop_max > 0 else 0
         for _ in range(noops):
             _, _, done, _ = self.env.step(0)
@@ -129,27 +122,25 @@ class AtariPreprocessing(gym.Wrapper):
                 self.env.reset(**kwargs)
 
         self.lives = self.ale.lives()
-        if self.grayscale_obs:
-            self.ale.getScreenGrayscale(self.obs_buffer[0])
-        else:
-            self.ale.getScreenRGB2(self.obs_buffer[0])
-        self.obs_buffer[1].fill(0)
-
-
-        result_array = [self._get_obs() for i in range(4)]
+        for i in range(self.frame_skip):
+            if self.grayscale_obs:
+                self.ale.getScreenGrayscale(self.obs_buffer[i])
+            else:
+                self.ale.getScreenRGB2(self.obs_buffer[i])
+        result_array = self._get_obs()
         return result_array
 
     def _get_obs(self):
         import cv2
-        if self.frame_skip > 1:  # more efficient in-place pooling
-            np.maximum(self.obs_buffer[0], self.obs_buffer[1], out=self.obs_buffer[0])
-        obs = cv2.resize(self.obs_buffer[0], (self.screen_size, self.screen_size), interpolation=cv2.INTER_AREA)
-
-        if self.scale_obs:
-            obs = np.asarray(obs, dtype=np.float32) / 255.0
-        else:
-            obs = np.asarray(obs, dtype=np.uint8)
-        return obs
+        result = []
+        for t in range(self.frame_skip):
+            obs = cv2.resize(self.obs_buffer[t], (self.screen_size, self.screen_size), interpolation=cv2.INTER_AREA)
+            if self.scale_obs:
+                obs = np.asarray(obs, dtype=np.float32) / 255.0
+            else:
+                obs = np.asarray(obs, dtype=np.uint8)
+            result.append(obs)
+        return result
 
 
 class ConvModel(nn.Module):
@@ -188,7 +179,7 @@ class RandomAgent(object):
 
     def __init__(self, action_space):
         """Initialize an Agent object.
-        
+
         Params
         =======
             size (int): size of the memory
@@ -199,7 +190,7 @@ class RandomAgent(object):
         """
         self.epsilon = 1
         self.finalexplo = 0.1
-        self.initialexplo = 1
+        self.initialexplo = 0.1
 
         self.action_space = action_space
         self.size = 1000000  # Memory size
@@ -208,12 +199,12 @@ class RandomAgent(object):
         self.state_size = 4
         self.action_size = 4
         self.learning_rate = 0.00025
-        self.model = ConvModel(np.array([4,84,84]), self.action_size)
-        self.model_duplicata = ConvModel(np.array([4,84,84]), 4)
+        self.model = ConvModel(np.array([4, 84, 84]), self.action_size)
+        self.model_duplicata = ConvModel(np.array([4, 84, 84]), 4)
         self.Tau = 0.5
 
         self.loss_fn = torch.nn.MSELoss(reduction='sum')
-        self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.learning_rate,momentum=0.95,eps=0.01)
+        self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.learning_rate, momentum=0.95, eps=0.01)
 
         self.learn_state = 0
         self.gamma = 0.99
@@ -241,8 +232,8 @@ class RandomAgent(object):
 
     def sample(self):
         array_index = np.random.choice(len(self.memory),
-                                   self.batch_size,
-                                   replace=False)
+                                       self.batch_size,
+                                       replace=False)
 
         sequence = zip(*[self.memory[i] for i in array_index])
 
@@ -259,7 +250,7 @@ class RandomAgent(object):
     def getMemory(self):
         return self.memory
 
-    def changeEps(self,episode):
+    def changeEps(self, episode):
         decay = 0.99
         self.epsilon = self.finalexplo + (self.initialexplo - self.finalexplo) * math.exp(-1 * ((episode + 1) / decay))
 
@@ -280,18 +271,17 @@ class RandomAgent(object):
         self.optimizer.step()
 
         if (self.learn_state % 10000 == 0):
-            print("learn_state : ", self.learn_state)
             self.upadteModel()
 
-        self.learn_state +=1
+        self.learn_state += 1
 
 
 
 if __name__ == '__main__':
-    # np.set_printoptions(threshold=sys.maxsize)
+    np.set_printoptions(threshold=sys.maxsize)
     parser = argparse.ArgumentParser(description=None)
     parser.add_argument('env_id', nargs='?', default='BreakoutNoFrameskip-v4', help='Select the environment to run')
-    args = parser.parse_args()
+    args = parser.parse_args(args=[])
 
     # You can set the level to logger.DEBUG or logger.WARN if you
     # want to change the amount of output.
@@ -309,18 +299,18 @@ if __name__ == '__main__':
     env = wrappers.Monitor(AtariPreprocessing(env, screen_size=84, grayscale_obs=True, frame_skip=4, scale_obs=True), directory=outdir, force=True)
     agent = RandomAgent(env.action_space)
     listSomme = []
-    episode_count = 50
+    episode_count = 600
     reward = 1
 
 
     for i in range(episode_count):
         somme = 0
         etat = env.reset()
-        done, step_i = False, 0
+        done = False
         agent.changeEps(i)
 
         while True:
-            # env.render()
+            #env.render()
             action = agent.act(etat,reward, done)
             etat_suivant, reward , done, _ = env.step(action)
             reward = reward if not done else -10
@@ -328,10 +318,7 @@ if __name__ == '__main__':
             # agent.learn(etat, torch.tensor([1.,0.], dtype=float) if action == 0 else torch.tensor([0,1], dtype=float))
             agent.remember(tensorAdd)
             etat = etat_suivant
-
             somme += reward
-            step_i += 1
-
             if done:
                 # agent.upadteModel()
                 break
@@ -339,8 +326,15 @@ if __name__ == '__main__':
             if len(agent.memory) > agent.batch_size:
                 # loss = agent.retry(batch_size)
                 agent.retry(agent.batch_size)
-        i = 1
+
+                
+        print("gain de cet episode : ",somme)
+        if listSomme:
+            maxvalue = max(listSomme)
+            if somme > maxvalue:
+                print("nouveau max :", somme)
         listSomme.append(somme)
+
 
     x = np.arange(episode_count) 
     y = np.array(listSomme)

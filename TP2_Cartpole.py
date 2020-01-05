@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import argparse
-import sys
-
+import sysm
 import gym
 from gym import wrappers, logger
 import matplotlib.pyplot as plt
@@ -14,7 +13,6 @@ from random import choices
 
 
 class RandomAgent(object):
-    """The world's simplest agent!"""
     def __init__(self, action_space):
         """Initialize an Agent object.
         
@@ -31,12 +29,11 @@ class RandomAgent(object):
         self.size = 100000 # Memory size
         self.memory = []
         self.batch_size = 32
-        self.state_size = 4 
+        self.state_size = 4
         self.action_size = 2
         self.learning_rate = 1e-3
         self.model = MultipleLayer(self.state_size, 100, self.action_size, 1)
         self.model_duplicata = MultipleLayer(self.state_size, 100, self.action_size, 1)
-        self.Tau = 0.5
 
         self.loss_fn = torch.nn.MSELoss(reduction='sum')
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
@@ -49,33 +46,16 @@ class RandomAgent(object):
 
     # action 1 = droite action 0 = gauche
     def act(self, observation, reward, done):
-
         epsilon = 0.1
         rnd = random.uniform(0, 1)
         res = self.model(torch.tensor(observation).float())
         maxval, idx = res.max(0)
         maxval, idx2 = res.min(0)
-
-
         if rnd < 1-epsilon:
             indices = idx.item()
         else:
             indices = idx2.item()
-
-        return indices 
-
-        # numerateur_g =  torch.exp( self.model(torch.tensor(observation).float())[0] / self.Tau )
-        # numerateur_d =  torch.exp( self.model(torch.tensor(observation).float())[1] / self.Tau )
-        # denominateur = torch.sum( torch.exp( self.model(torch.tensor(observation).float()) / self.Tau ) )
-
-        # Psag = numerateur_g / denominateur
-        # Psad = numerateur_d / denominateur
-
-        # population = [0, 1]
-        # weights = [Psag, Psad] 
-        # new_action = choices(population,weights)
-        # # return self.action_space.sample()
-        # return new_action[0]
+        return indices
 
     def upadteModel(self):
         self.model_duplicata.linear1 = self.model.linear1
@@ -177,7 +157,7 @@ if __name__ == '__main__':
         done = False
         
         while True:
-            # env.render()
+            #  aenv.render()
             action = agent.act(etat, reward, done)
             etat_suivant, reward, done, _ = env.step(action)
             reward = reward if not done else -10
