@@ -94,6 +94,7 @@ class RandomAgent(object):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+            
 
             if (self.learn_state % 10000 == 0):
                 print("learn_state : ", self.learn_state)
