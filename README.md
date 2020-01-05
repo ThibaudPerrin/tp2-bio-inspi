@@ -13,4 +13,3 @@ Thibaud Perrin 11707841
   
 # Execution 
   - **python TP2_Cartpole.py / python TP2_Atari**
-  
