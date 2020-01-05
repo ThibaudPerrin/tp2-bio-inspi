@@ -266,7 +266,7 @@ class RandomAgent(object):
         qO_suivant = self.model_duplicata(etat_suivant)
         qOsa_suivant = qO_suivant.max(1)[0]
 
-        rPlusMaxNext = reward + self.gamma * qOsa_suivant * (1 - done)
+        rPlusMaxNext =   reward + self.gamma * qOsa_suivant * (1 - done)
 
         loss = (qOsa - Variable(rPlusMaxNext.data)).pow(2).mean()
         loss.backward()
